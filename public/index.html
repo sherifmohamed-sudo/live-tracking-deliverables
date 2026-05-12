@@ -1685,33 +1685,32 @@ function renderPricing() {
     })
     .sort((a, b) => b.slippage - a.slippage);
 
-  // Diverging bar: origin at center (50%), bars extend right for positive (actual > sold)
-  // and left for negative (actual < sold). Max bar = 30pts either side fills half the bar.
-  const MAX_PTS = 30;
-  const ORIGIN = 50; // center of the bar in %
+  // Diverging bar based on actual GM%: origin at center = 0%.
+  // Positive actual GM → bar extends right (green).
+  // Negative actual GM → bar extends left (red/amber).
+  const MAX_GM = 0.70; // 70% fills half the bar
+  const ORIGIN = 50;
   const html = rows.map(r => {
-    const slipPts = r.slippage * 100; // positive = margin lost
-    const deltaPts = -slipPts; // positive = good (actual above sold)
-    const barWidth = Math.min(Math.abs(deltaPts) / MAX_PTS * ORIGIN, ORIGIN);
+    const actualPct = r.gmActual * 100;
+    const barWidth = Math.min(Math.abs(actualPct) / (MAX_GM * 100) * ORIGIN, ORIGIN);
 
     let gmClass;
-    if (deltaPts >= 0) gmClass = 'green';
-    else if (Math.abs(deltaPts) <= 5) gmClass = 'amber';
+    if (actualPct >= 0) gmClass = 'green';
+    else if (Math.abs(actualPct) <= 5) gmClass = 'amber';
     else gmClass = 'red';
 
-    // Position: green bars go right from origin, red/amber go left from origin
     let barStyle;
-    if (deltaPts >= 0) {
+    if (actualPct >= 0) {
       barStyle = `left:${ORIGIN}%; width:${barWidth}%`;
     } else {
       barStyle = `left:${ORIGIN - barWidth}%; width:${barWidth}%`;
     }
 
+    const slipPts = r.slippage * 100;
     const labelClass = gmClass === 'green' ? 'low' : gmClass === 'red' ? 'heavy' : '';
-    const sign = deltaPts >= 0 ? '+' : '';
-    const slipLabel = sign + deltaPts.toFixed(1) + ' pts';
+    const slipLabel = (actualPct >= 0 ? '+' : '') + actualPct.toFixed(1) + ' pts';
     const earlyTag = r.early ? '<span class="early-tag">EARLY</span>' : '';
-    const belowfloor = slipPts >= 10;
+    const belowfloor = actualPct < -10;
     return `<div class="pricing-row ${belowfloor ? 'belowfloor' : ''}">
       <div class="pricing-row-head">
         <span class="pricing-client">${r.client} ${earlyTag}</span>
