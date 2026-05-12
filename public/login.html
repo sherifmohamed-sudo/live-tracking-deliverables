@@ -232,7 +232,7 @@
 
     <p class="login-title">Solutions Delivery</p>
     <h1 class="login-heading">Command <strong>Centre</strong></h1>
-    <p class="login-subtitle">Sign in with your @appliedai.com Google account to access the dashboard.</p>
+    <p class="login-subtitle">Sign in with your @aaico.com Google account to access the dashboard.</p>
 
     <div class="divider"><span>continue with</span></div>
 
@@ -259,7 +259,7 @@
 const GOOGLE_CLIENT_ID = '112869379762-nv11nr726mu4lfgqp2kr4ig5krghjac5.apps.googleusercontent.com';
 
 // Optional: restrict to specific domain(s). Set to null to allow any Google account.
-const ALLOWED_DOMAINS = ['appliedai.com'];
+const ALLOWED_DOMAINS = ['aaico.com'];
 
 // If already authenticated, go straight to dashboard
 if (sessionStorage.getItem('cc_user')) {
@@ -274,7 +274,7 @@ window.addEventListener('load', () => {
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: 'email profile',
-    hosted_domain: 'appliedai.com',
+    hosted_domain: 'aaico.com',
     callback: handleTokenResponse,
   });
 });
