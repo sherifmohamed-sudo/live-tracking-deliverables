@@ -267,59 +267,32 @@ if (sessionStorage.getItem('cc_user')) {
 }
 
 // ---- Google Identity Services ----
-function initGSI() {
-  if (typeof google === 'undefined') return;
-  google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: handleCredentialResponse,
-    auto_select: false,
-    hosted_domain: 'appliedai.com',
-  });
-}
+let tokenClient = null;
 
 window.addEventListener('load', () => {
-  initGSI();
+  if (typeof google === 'undefined') return;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: 'email profile',
+    hosted_domain: 'appliedai.com',
+    callback: handleTokenResponse,
+  });
 });
 
 function handleGoogleSignIn() {
-  showSpinner(true);
   hideError();
 
   if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.startsWith('YOUR_')) {
-    showSpinner(false);
     showError('Google Client ID not configured. Update login.html with your OAuth Client ID.');
     return;
   }
 
-  if (typeof google === 'undefined') {
-    showSpinner(false);
+  if (!tokenClient) {
     showError('Google Sign-In library failed to load. Check your connection.');
     return;
   }
 
-  google.accounts.id.prompt((notification) => {
-    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-      // Fall back to button-based flow
-      google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: 'email profile',
-        callback: handleTokenResponse,
-        hint: '',
-        hosted_domain: 'appliedai.com',
-      }).requestAccessToken();
-    }
-  });
-}
-
-function handleCredentialResponse(response) {
-  showSpinner(true);
-  try {
-    const payload = parseJwt(response.credential);
-    processUser(payload);
-  } catch (e) {
-    showSpinner(false);
-    showError('Authentication failed. Please try again.');
-  }
+  tokenClient.requestAccessToken();
 }
 
 async function handleTokenResponse(tokenResponse) {
@@ -356,17 +329,6 @@ function processUser(payload) {
 
   sessionStorage.setItem('cc_user', JSON.stringify(user));
   window.location.replace('index.html');
-}
-
-function parseJwt(token) {
-  const base64Url = token.split('.')[1];
-  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-  const jsonPayload = decodeURIComponent(
-    atob(base64).split('').map(c =>
-      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-    ).join('')
-  );
-  return JSON.parse(jsonPayload);
 }
 
 function showSpinner(v) { document.getElementById('spinner').classList.toggle('visible', v); }
