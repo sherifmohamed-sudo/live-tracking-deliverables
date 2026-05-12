@@ -227,7 +227,7 @@
 
     <p class="login-title">Solutions Delivery</p>
     <h1 class="login-heading">Command <strong>Centre</strong></h1>
-    <p class="login-subtitle">Sign in with your Google workspace account to access the dashboard.</p>
+    <p class="login-subtitle">Sign in with your @appliedai.com Google account to access the dashboard.</p>
 
     <div class="divider"><span>continue with</span></div>
 
@@ -254,7 +254,7 @@
 const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 
 // Optional: restrict to specific domain(s). Set to null to allow any Google account.
-const ALLOWED_DOMAINS = null; // e.g. ['opus.com', 'yourdomain.com']
+const ALLOWED_DOMAINS = ['appliedai.com'];
 
 // If already authenticated, go straight to dashboard
 if (sessionStorage.getItem('cc_user')) {
@@ -268,6 +268,7 @@ function initGSI() {
     client_id: GOOGLE_CLIENT_ID,
     callback: handleCredentialResponse,
     auto_select: false,
+    hosted_domain: 'appliedai.com',
   });
 }
 
@@ -298,6 +299,8 @@ function handleGoogleSignIn() {
         client_id: GOOGLE_CLIENT_ID,
         scope: 'email profile',
         callback: handleTokenResponse,
+        hint: '',
+        hosted_domain: 'appliedai.com',
       }).requestAccessToken();
     }
   });
