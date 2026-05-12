@@ -213,17 +213,16 @@
   }
   .app-logo {
     display: flex; align-items: center;
-    gap: 10px;
     margin-right: 18px;
     padding-right: 18px;
     border-right: 1px solid var(--border-strong);
-    font-family: 'Prompt', sans-serif;
-    font-weight: 700;
-    font-size: 18px;
-    color: var(--white);
-    letter-spacing: 0.5px;
-    white-space: nowrap;
   }
+  .app-logo img {
+    height: 28px;
+    width: auto;
+    filter: invert(1) brightness(1.1);
+  }
+  body.theme-light .app-logo img { filter: none; }
   .top-title {
     font-family: 'Prompt', sans-serif;
     font-weight: 400; font-size: 17px;
@@ -904,7 +903,7 @@
   <!-- ============ TOP BAR ============ -->
   <div class="topbar">
     <div class="top-left">
-      <div class="app-logo">AppliedAI</div>
+      <div class="app-logo"><img src="appliedai-logo.png" alt="AppliedAI"></div>
     </div>
     <div class="top-centre">
       <div class="top-title">Solutions Delivery <strong>Command Centre</strong></div>
