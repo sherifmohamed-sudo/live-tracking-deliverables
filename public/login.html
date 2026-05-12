@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&family=Open+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root {
     --space-black: #0a0e1a;
@@ -255,80 +254,64 @@
 
 <script>
 // ---- CONFIG ----
-// Replace with your Google OAuth Client ID from https://console.cloud.google.com/
 const GOOGLE_CLIENT_ID = '112869379762-nv11nr726mu4lfgqp2kr4ig5krghjac5.apps.googleusercontent.com';
-
-// Optional: restrict to specific domain(s). Set to null to allow any Google account.
 const ALLOWED_DOMAINS = ['aaico.com'];
+const REDIRECT_URI = window.location.origin + '/login.html';
 
 // If already authenticated, go straight to dashboard
 if (sessionStorage.getItem('cc_user')) {
   window.location.replace('index.html');
 }
 
-// ---- Google Identity Services ----
-let tokenClient = null;
+// ---- Check for OAuth callback (token in URL hash) ----
+(async function handleCallback() {
+  const hash = window.location.hash.substring(1);
+  if (!hash) return;
 
-window.addEventListener('load', () => {
-  if (typeof google === 'undefined') return;
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: 'email profile',
-    hosted_domain: 'aaico.com',
-    callback: handleTokenResponse,
-  });
-});
+  const params = new URLSearchParams(hash);
+  const accessToken = params.get('access_token');
+  if (!accessToken) return;
 
-function handleGoogleSignIn() {
-  hideError();
-
-  if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.startsWith('YOUR_')) {
-    showError('Google Client ID not configured. Update login.html with your OAuth Client ID.');
-    return;
-  }
-
-  if (!tokenClient) {
-    showError('Google Sign-In library failed to load. Check your connection.');
-    return;
-  }
-
-  tokenClient.requestAccessToken();
-}
-
-async function handleTokenResponse(tokenResponse) {
+  window.history.replaceState(null, '', window.location.pathname);
   showSpinner(true);
+
   try {
     const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+      headers: { Authorization: 'Bearer ' + accessToken },
     });
     const payload = await res.json();
-    processUser(payload);
+    const domain = payload.email.split('@')[1];
+
+    if (ALLOWED_DOMAINS && !ALLOWED_DOMAINS.includes(domain)) {
+      showSpinner(false);
+      showError('Access restricted. ' + domain + ' is not an authorised domain.');
+      return;
+    }
+
+    sessionStorage.setItem('cc_user', JSON.stringify({
+      name: payload.name,
+      email: payload.email,
+      picture: payload.picture,
+      domain: domain,
+      loginAt: new Date().toISOString(),
+    }));
+    window.location.replace('index.html');
   } catch (e) {
     showSpinner(false);
-    showError('Failed to fetch user info. Please try again.');
+    showError('Authentication failed. Please try again.');
   }
-}
+})();
 
-function processUser(payload) {
-  const email = payload.email;
-  const domain = email.split('@')[1];
-
-  if (ALLOWED_DOMAINS && !ALLOWED_DOMAINS.includes(domain)) {
-    showSpinner(false);
-    showError(`Access restricted. ${domain} is not an authorised domain.`);
-    return;
-  }
-
-  const user = {
-    name: payload.name,
-    email: payload.email,
-    picture: payload.picture,
-    domain: domain,
-    loginAt: new Date().toISOString(),
-  };
-
-  sessionStorage.setItem('cc_user', JSON.stringify(user));
-  window.location.replace('index.html');
+// ---- Sign-in: redirect to Google ----
+function handleGoogleSignIn() {
+  const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
+    '?client_id=' + encodeURIComponent(GOOGLE_CLIENT_ID) +
+    '&redirect_uri=' + encodeURIComponent(REDIRECT_URI) +
+    '&response_type=token' +
+    '&scope=' + encodeURIComponent('email profile') +
+    '&hd=aaico.com' +
+    '&prompt=select_account';
+  window.location.href = authUrl;
 }
 
 function showSpinner(v) { document.getElementById('spinner').classList.toggle('visible', v); }
