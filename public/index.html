@@ -306,9 +306,13 @@
     height: 8px;
   }
   .view-dot {
-    width: 6px; height: 6px; border-radius: 50%;
+    width: 8px; height: 8px; border-radius: 50%;
     background: var(--border-strong);
     transition: background 0.4s, width 0.4s;
+    cursor: pointer;
+  }
+  .view-dot:hover {
+    background: var(--grey-300);
   }
   .view-dot.active {
     background: var(--code-green);
@@ -1934,11 +1938,15 @@ async function start() {
 }
 
 // ============ VIEW ROTATOR ============
-const VIEW_INTERVAL_MS = 20000; // 20 seconds per view
+const VIEW_INTERVAL_MS = 20000;
+const PAUSE_AFTER_CLICK_MS = 60000;
 const viewOrder = ['delivery', 'commercial', 'team'];
 let currentViewIdx = 0;
-function rotateView() {
-  currentViewIdx = (currentViewIdx + 1) % viewOrder.length;
+let viewRotatorId = null;
+let pauseResumeId = null;
+
+function switchToView(idx) {
+  currentViewIdx = idx;
   const next = viewOrder[currentViewIdx];
   document.querySelectorAll('.view').forEach(v => {
     v.classList.toggle('active', v.dataset.view === next);
@@ -1946,7 +1954,6 @@ function rotateView() {
   document.querySelectorAll('.view-dot').forEach(d => {
     d.classList.toggle('active', d.dataset.dot === next);
   });
-  // Restart auto-scroll on newly visible panels so they begin from the top
   if (next === 'delivery') {
     setupScroll('eng-list', 'eng-track', 28);
     setupScroll('risk-list', 'risk-track', 25);
@@ -1957,6 +1964,30 @@ function rotateView() {
     setupScroll('hiring-list', 'hiring-track', 20);
   }
 }
+
+function rotateView() {
+  switchToView((currentViewIdx + 1) % viewOrder.length);
+}
+
+function startAutoRotate() {
+  if (viewRotatorId) clearInterval(viewRotatorId);
+  viewRotatorId = setInterval(rotateView, VIEW_INTERVAL_MS);
+}
+
+function pauseAutoRotate() {
+  if (viewRotatorId) { clearInterval(viewRotatorId); viewRotatorId = null; }
+  if (pauseResumeId) clearTimeout(pauseResumeId);
+  pauseResumeId = setTimeout(startAutoRotate, PAUSE_AFTER_CLICK_MS);
+}
+
+document.querySelectorAll('.view-dot').forEach(dot => {
+  dot.addEventListener('click', () => {
+    const idx = viewOrder.indexOf(dot.dataset.dot);
+    if (idx === -1) return;
+    switchToView(idx);
+    pauseAutoRotate();
+  });
+});
 
 // ============ USER BADGE ============
 (function initUserBadge() {
@@ -1982,7 +2013,7 @@ start();
 tick();
 setInterval(tick, 1000);
 setInterval(rotateWins, 5000);
-setInterval(rotateView, VIEW_INTERVAL_MS);
+startAutoRotate();
 </script>
 </body>
 </html>
