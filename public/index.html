@@ -1194,7 +1194,7 @@ const DUMMY_DATA = {
 
 // Live state — mutated by fetchAll() and read by renderers
 let DATA = JSON.parse(JSON.stringify(DUMMY_DATA));
-let CONFIG = { refreshSeconds: 60, gmTarget: 0.55, utilTarget: 0.75, satAmber: 4, satRed: 3, guestMode: false };
+let CONFIG = { refreshSeconds: 60, gmTarget: 0, utilTarget: 0.75, satAmber: 4, satRed: 3, guestMode: false };
 
 // ============ CSV PARSER ============
 // Handles quoted fields, embedded commas, and escaped quotes ("")
@@ -1384,7 +1384,7 @@ function mapConfig(rows) {
   rows.forEach(r => { if (r['Setting']) map[r['Setting']] = r['Value']; });
   return {
     refreshSeconds: toNum(map['Refresh interval seconds']) || 60,
-    gmTarget: toPct(map['GM target % (portfolio)']) || 0.55,
+    gmTarget: toPct(map['GM target % (portfolio)']),
     utilTarget: toPct(map['Utilisation target %']) || 0.75,
     satAmber: toNum(map['Satisfaction amber threshold']) || 4,
     satRed: toNum(map['Satisfaction red threshold']) || 3,
@@ -1590,10 +1590,10 @@ function renderStats() {
 
   const weightedGM = DATA.engagements.filter(e => e.status === 'Active')
     .reduce((s,e) => s + e.gmActual * e.contract, 0) / totalContract;
+  const gmTarget = CONFIG.gmTarget;
   const gmEl = document.getElementById('stat-gm');
   gmEl.textContent = fmtPct(weightedGM);
-  gmEl.style.color = weightedGM >= 0.55 ? 'var(--code-green)' : weightedGM >= 0.50 ? 'var(--amber)' : 'var(--red)';
-  const gmTarget = CONFIG.gmTarget || 0.55;
+  gmEl.style.color = weightedGM >= gmTarget ? 'var(--code-green)' : weightedGM >= (gmTarget - 0.05) ? 'var(--amber)' : 'var(--red)';
   const gmDelta = (weightedGM - gmTarget) * 100;
   const gmSub = document.getElementById('stat-gm-sub');
   gmSub.textContent = (gmDelta >= 0 ? '+' : '') + gmDelta.toFixed(1) + 'pts vs target ' + Math.round(gmTarget*100) + '%';
