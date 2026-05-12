@@ -109,8 +109,7 @@
   body.theme-light .pricing-row.belowfloor .pricing-sold-bar {
     background: linear-gradient(90deg, var(--red) 0%, #b91c1c 100%);
   }
-  /* Opus logo: dark mode inverts (black SVG → appears white); light mode shows native black */
-  body.theme-light .opus-logo img.invert { filter: none; }
+  body.theme-light .app-logo .logo-ai { color: #3d63d4; }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -213,17 +212,21 @@
     border-color: var(--safety-blue-soft);
     background: rgba(27,77,255,0.12);
   }
-  .opus-logo {
+  .app-logo {
     display: flex; align-items: center;
-    color: var(--white);
-  }
-  .opus-logo:not(:empty) {
     margin-right: 18px;
     padding-right: 18px;
     border-right: 1px solid var(--border-strong);
+    font-family: 'Prompt', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--white);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
   }
-  .opus-logo img, .opus-logo svg { height: 28px; width: auto; display: block; }
-  .opus-logo img.invert { filter: invert(1) brightness(1.1); }
+  .app-logo .logo-ai {
+    color: var(--safety-blue-soft);
+  }
   .top-title {
     font-family: 'Prompt', sans-serif;
     font-weight: 400; font-size: 17px;
@@ -904,8 +907,7 @@
   <!-- ============ TOP BAR ============ -->
   <div class="topbar">
     <div class="top-left">
-      <!-- Empty Opus logo slot — replace contents with <img src="..."/> or inline SVG to use the real logo -->
-      <div class="opus-logo" id="opus-logo"><img src="https://www.opus.com/images/opus-wordmark-navbar-black.svg" alt="Opus" class="invert"></div>
+      <div class="app-logo">Applied<span class="logo-ai">AI</span></div>
     </div>
     <div class="top-centre">
       <div class="top-title">Solutions Delivery <strong>Command Centre</strong></div>

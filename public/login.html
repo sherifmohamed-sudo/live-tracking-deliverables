@@ -84,10 +84,15 @@
     justify-content: center;
     margin-bottom: 12px;
   }
-  .login-logo img {
-    height: 32px;
-    width: auto;
-    filter: invert(1) brightness(1.1);
+  .login-logo-text {
+    font-family: 'Prompt', sans-serif;
+    font-weight: 700;
+    font-size: 28px;
+    color: var(--white);
+    letter-spacing: 1px;
+  }
+  .login-logo-text span {
+    color: var(--safety-blue-soft);
   }
 
   .login-title {
@@ -222,7 +227,7 @@
 <div class="login-container">
   <div class="login-card">
     <div class="login-logo">
-      <img src="https://www.opus.com/images/opus-wordmark-navbar-black.svg" alt="Opus">
+      <div class="login-logo-text">Applied<span>AI</span></div>
     </div>
 
     <p class="login-title">Solutions Delivery</p>
@@ -244,7 +249,7 @@
     <div class="spinner" id="spinner"></div>
     <div class="error-msg" id="error-msg"></div>
 
-    <p class="login-footer">SECURED ACCESS &bull; GOOGLE SSO</p>
+    <p class="login-footer">APPLIEDAI &bull; SECURED ACCESS &bull; GOOGLE SSO</p>
   </div>
 </div>
 
@@ -282,7 +287,7 @@ function handleGoogleSignIn() {
 
   if (GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com') {
     showSpinner(false);
-    showError('Google Client ID not configured. See login.html config section.');
+    showError('Google Client ID not configured yet. Go to console.cloud.google.com → APIs & Services → Credentials → Create OAuth Client ID, then paste it into login.html.');
     return;
   }
 
