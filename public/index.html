@@ -103,12 +103,9 @@
   body.theme-light .util-fill.watch         { background: linear-gradient(90deg, var(--amber) 0%, #d97706 100%); }
   body.theme-light .util-fill.low           { background: linear-gradient(90deg, var(--red) 0%, #dc2626 100%); }
   body.theme-light .util-fill.healthy       { background: linear-gradient(90deg, var(--code-green) 0%, #059669 100%); }
-  body.theme-light .pricing-sold-bar.green  { background: linear-gradient(90deg, var(--code-green) 0%, #059669 100%); }
-  body.theme-light .pricing-sold-bar.amber  { background: linear-gradient(90deg, var(--amber) 0%, #d97706 100%); }
-  body.theme-light .pricing-sold-bar.red    { background: linear-gradient(90deg, var(--red) 0%, #dc2626 100%); }
-  body.theme-light .pricing-row.belowfloor .pricing-sold-bar {
-    background: linear-gradient(90deg, var(--red) 0%, #b91c1c 100%);
-  }
+  body.theme-light .pricing-delta-bar.green  { background: linear-gradient(90deg, var(--code-green) 0%, #059669 100%); }
+  body.theme-light .pricing-delta-bar.amber  { background: linear-gradient(270deg, var(--amber) 0%, #d97706 100%); }
+  body.theme-light .pricing-delta-bar.red    { background: linear-gradient(270deg, var(--red) 0%, #dc2626 100%); }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -600,19 +597,20 @@
     border-radius: 2px;
     overflow: hidden;
   }
-  .pricing-list-bar {
-    position: absolute; left: 0; top: 0; height: 100%;
-    background: rgba(255,255,255,0.10);
+  .pricing-origin {
+    position: absolute; top: 0; bottom: 0; width: 1px;
+    background: var(--grey-500);
+    z-index: 2;
   }
-  .pricing-sold-bar {
-    position: absolute; left: 0; top: 0; height: 100%;
-    background: linear-gradient(90deg, var(--code-green) 0%, var(--code-green-soft) 100%);
+  .pricing-delta-bar {
+    position: absolute; top: 0; height: 100%;
+    border-radius: 2px;
   }
-  .pricing-sold-bar.green  { background: linear-gradient(90deg, var(--code-green) 0%, var(--code-green-soft) 100%); }
-  .pricing-sold-bar.amber  { background: linear-gradient(90deg, var(--amber) 0%, #ffd27a 100%); }
-  .pricing-sold-bar.red    { background: linear-gradient(90deg, var(--red) 0%, #ff7a8e 100%); }
-  .pricing-row.belowfloor .pricing-sold-bar {
-    background: linear-gradient(90deg, var(--red) 0%, #ff7a8e 100%);
+  .pricing-delta-bar.green  { background: linear-gradient(90deg, var(--code-green) 0%, var(--code-green-soft) 100%); }
+  .pricing-delta-bar.amber  { background: linear-gradient(270deg, var(--amber) 0%, #ffd27a 100%); }
+  .pricing-delta-bar.red    { background: linear-gradient(270deg, var(--red) 0%, #ff7a8e 100%); }
+  .pricing-row.belowfloor .pricing-delta-bar {
+    background: linear-gradient(270deg, var(--red) 0%, #ff7a8e 100%);
   }
   .pricing-row.belowfloor .pricing-client::after {
     content: " ⚠ heavy slippage";
@@ -1687,33 +1685,41 @@ function renderPricing() {
     })
     .sort((a, b) => b.slippage - a.slippage);
 
-  // Bar scale: each row's bars represent GM% on a fixed 0-70% scale so they're comparable
-  const SCALE = 0.70;
+  // Diverging bar: origin at center (50%), bars extend right for positive (actual > sold)
+  // and left for negative (actual < sold). Max bar = 30pts either side fills half the bar.
+  const MAX_PTS = 30;
+  const ORIGIN = 50; // center of the bar in %
   const html = rows.map(r => {
-    const soldW = Math.min(100, (r.gmSold / SCALE) * 100);
-    const actualW = Math.min(100, (r.gmActual / SCALE) * 100);
-    const slipPts = r.slippage * 100;
-    // Unified colour rule: bar and label always agree.
-    //   slippage = 0 pts or actual above sold  → green (label says +X or −0.0)
-    //   slippage = 0 to 5 pts                  → amber
-    //   slippage > 5 pts                       → red
+    const slipPts = r.slippage * 100; // positive = margin lost
+    const deltaPts = -slipPts; // positive = good (actual above sold)
+    const barWidth = Math.min(Math.abs(deltaPts) / MAX_PTS * ORIGIN, ORIGIN);
+
     let gmClass;
-    if (slipPts <= 0) gmClass = 'green';
-    else if (slipPts <= 5) gmClass = 'amber';
+    if (deltaPts >= 0) gmClass = 'green';
+    else if (Math.abs(deltaPts) <= 5) gmClass = 'amber';
     else gmClass = 'red';
-    // Same class drives both the label text colour and the bar fill
+
+    // Position: green bars go right from origin, red/amber go left from origin
+    let barStyle;
+    if (deltaPts >= 0) {
+      barStyle = `left:${ORIGIN}%; width:${barWidth}%`;
+    } else {
+      barStyle = `left:${ORIGIN - barWidth}%; width:${barWidth}%`;
+    }
+
     const labelClass = gmClass === 'green' ? 'low' : gmClass === 'red' ? 'heavy' : '';
-    const slipLabel = (slipPts >= 0 ? '−' : '+') + Math.abs(slipPts).toFixed(1) + ' pts';
+    const sign = deltaPts >= 0 ? '+' : '';
+    const slipLabel = sign + deltaPts.toFixed(1) + ' pts';
     const earlyTag = r.early ? '<span class="early-tag">EARLY</span>' : '';
-    const belowfloor = slipPts >= 10; // 10+ pts of slippage flagged
+    const belowfloor = slipPts >= 10;
     return `<div class="pricing-row ${belowfloor ? 'belowfloor' : ''}">
       <div class="pricing-row-head">
         <span class="pricing-client">${r.client} ${earlyTag}</span>
         <span class="pricing-discount ${labelClass}">${slipLabel}</span>
       </div>
       <div class="pricing-bars">
-        <div class="pricing-list-bar" style="width:${soldW}%"></div>
-        <div class="pricing-sold-bar ${gmClass}" style="width:${actualW}%"></div>
+        <div class="pricing-origin" style="left:${ORIGIN}%"></div>
+        <div class="pricing-delta-bar ${gmClass}" style="${barStyle}"></div>
       </div>
       <div class="pricing-footnote">
         <span>sold ${(r.gmSold*100).toFixed(0)}%</span>
