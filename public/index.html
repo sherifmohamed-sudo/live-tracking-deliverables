@@ -1590,14 +1590,21 @@ function renderStats() {
 
   const weightedGM = DATA.engagements.filter(e => e.status === 'Active')
     .reduce((s,e) => s + e.gmActual * e.contract, 0) / totalContract;
-  const gmTarget = CONFIG.gmTarget;
   const gmEl = document.getElementById('stat-gm');
   gmEl.textContent = fmtPct(weightedGM);
-  gmEl.style.color = weightedGM >= gmTarget ? 'var(--code-green)' : weightedGM >= (gmTarget - 0.05) ? 'var(--amber)' : 'var(--red)';
-  const gmDelta = (weightedGM - gmTarget) * 100;
+  const gmTarget = CONFIG.gmTarget || 0;
+  gmEl.style.color = gmTarget > 0
+    ? (weightedGM >= gmTarget ? 'var(--code-green)' : weightedGM >= gmTarget * 0.9 ? 'var(--amber)' : 'var(--red)')
+    : 'var(--white)';
   const gmSub = document.getElementById('stat-gm-sub');
-  gmSub.textContent = (gmDelta >= 0 ? '+' : '') + gmDelta.toFixed(1) + 'pts vs target ' + Math.round(gmTarget*100) + '%';
-  gmSub.className = 'stat-sub ' + (gmDelta >= 0 ? 'green' : 'red');
+  if (gmTarget > 0) {
+    const gmDelta = (weightedGM - gmTarget) * 100;
+    gmSub.textContent = (gmDelta >= 0 ? '+' : '') + gmDelta.toFixed(1) + 'pts vs target ' + Math.round(gmTarget*100) + '%';
+    gmSub.className = 'stat-sub ' + (gmDelta >= 0 ? 'green' : 'red');
+  } else {
+    gmSub.textContent = 'no target set';
+    gmSub.className = 'stat-sub';
+  }
 
   // Portfolio CSAT: average of latest scores across active engagements (skip those with no score)
   const satAmber = CONFIG.satAmber || 4;
