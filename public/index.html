@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&family=Open+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  if (!sessionStorage.getItem('cc_user')) { window.location.replace('login.html'); }
+</script>
 <style>
   :root {
     --space-black: #0a0e1a;
@@ -170,6 +173,45 @@
   }
   .top-meta {
     justify-self: end;
+  }
+  .user-badge {
+    display: flex; align-items: center; gap: 8px;
+    margin-left: 18px;
+    padding-left: 18px;
+    border-left: 1px solid var(--border-strong);
+  }
+  .user-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-strong);
+    object-fit: cover;
+  }
+  .user-avatar-fallback {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--safety-blue);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Prompt', sans-serif;
+    font-size: 11px; font-weight: 600;
+    color: #fff;
+  }
+  .sign-out-btn {
+    background: none;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--grey-300);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .sign-out-btn:hover {
+    color: var(--white);
+    border-color: var(--safety-blue-soft);
+    background: rgba(27,77,255,0.12);
   }
   .opus-logo {
     display: flex; align-items: center;
@@ -874,6 +916,7 @@
         <span class="live-dot" id="livedot"></span>
         <span id="datastatus-text">LIVE</span>
       </span>
+      <div class="user-badge" id="user-badge"></div>
     </div>
   </div>
 
@@ -1904,6 +1947,26 @@ function rotateView() {
     setupScroll('hiring-list', 'hiring-track', 20);
   }
 }
+
+// ============ USER BADGE ============
+(function initUserBadge() {
+  const raw = sessionStorage.getItem('cc_user');
+  if (!raw) return;
+  const user = JSON.parse(raw);
+  const badge = document.getElementById('user-badge');
+  if (!badge) return;
+
+  const avatarEl = user.picture
+    ? `<img class="user-avatar" src="${user.picture}" alt="" referrerpolicy="no-referrer">`
+    : `<div class="user-avatar-fallback">${(user.name || user.email)[0].toUpperCase()}</div>`;
+
+  badge.innerHTML = `${avatarEl}<button class="sign-out-btn" id="sign-out-btn">Sign Out</button>`;
+
+  document.getElementById('sign-out-btn').addEventListener('click', () => {
+    sessionStorage.removeItem('cc_user');
+    window.location.replace('login.html');
+  });
+})();
 
 start();
 tick();
