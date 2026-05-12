@@ -931,7 +931,7 @@
       <div class="stat">
         <div class="stat-label">Discounted Revenue Under Mgmt</div>
         <div class="stat-value" id="stat-rum">—</div>
-        <div class="stat-sub" id="stat-rum-sub">delivered to date</div>
+        <div class="stat-sub" id="stat-rum-sub">invoiced to date</div>
       </div>
       <div class="stat">
         <div class="stat-label">Portfolio GM</div>
@@ -1586,7 +1586,7 @@ function renderStats() {
   const totalDelivered = DATA.engagements.filter(e => e.status === 'Active').reduce((s,e) => s + e.delivered, 0);
   document.getElementById('stat-rum-list').textContent = fmtMoney(totalList);
   document.getElementById('stat-rum').textContent = fmtMoney(totalContract);
-  document.getElementById('stat-rum-sub').textContent = fmtMoney(totalDelivered) + ' delivered (' + Math.round(totalDelivered/totalContract*100) + '%)';
+  document.getElementById('stat-rum-sub').textContent = fmtMoney(totalDelivered) + ' invoiced (' + Math.round(totalDelivered/totalContract*100) + '%)';
 
   const weightedGM = DATA.engagements.filter(e => e.status === 'Active')
     .reduce((s,e) => s + e.gmActual * e.contract, 0) / totalContract;
