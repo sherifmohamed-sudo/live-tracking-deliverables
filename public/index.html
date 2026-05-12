@@ -165,6 +165,7 @@
 
   .top-left {
     display: flex; align-items: center; justify-content: flex-start;
+    min-height: 100%;
   }
   .top-centre {
     display: flex; align-items: center; justify-content: center;
@@ -212,15 +213,17 @@
     background: rgba(27,77,255,0.12);
   }
   .app-logo {
-    display: flex; align-items: center;
+    display: flex; align-items: center; justify-content: center;
     margin-right: 18px;
     padding-right: 18px;
     border-right: 1px solid var(--border-strong);
+    align-self: center;
   }
   .app-logo img {
     height: 64px;
     width: auto;
     object-fit: contain;
+    display: block;
     filter: invert(1) brightness(1.1);
   }
   body.theme-light .app-logo img { filter: none; }
