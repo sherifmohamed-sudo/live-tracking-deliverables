@@ -1009,11 +1009,11 @@
           <div class="gm-stack">
             <div class="gm-card-lg">
               <div class="gm-card-label">GM at sold</div>
-              <div class="gm-card-val-lg green" id="gm-list">—</div>
+              <div class="gm-card-val-lg" id="gm-list">—</div>
             </div>
             <div class="gm-card-lg">
               <div class="gm-card-label">GM actual</div>
-              <div class="gm-card-val-lg amber" id="gm-sold">—</div>
+              <div class="gm-card-val-lg" id="gm-sold">—</div>
             </div>
             <div class="gm-delta" id="gm-delta">—</div>
           </div>
@@ -1741,15 +1741,20 @@ function renderPricing() {
     return s + gmSold * e.contract;
   }, 0) / totalContract;
   const wgmActual = active.reduce((s, e) => s + e.gmActual * e.contract, 0) / totalContract;
-  document.getElementById('gm-list').textContent = fmtPct(wgmSold);
-  document.getElementById('gm-sold').textContent = fmtPct(wgmActual);
+  const gmListEl = document.getElementById('gm-list');
+  const gmSoldEl = document.getElementById('gm-sold');
+  gmListEl.textContent = fmtPct(wgmSold);
+  gmSoldEl.textContent = fmtPct(wgmActual);
+  const gmValClass = v => (v > 0 ? 'green' : v < 0 ? 'red' : '');
+  gmListEl.className = 'gm-card-val-lg' + (gmValClass(wgmSold) ? ' ' + gmValClass(wgmSold) : '');
+  gmSoldEl.className = 'gm-card-val-lg' + (gmValClass(wgmActual) ? ' ' + gmValClass(wgmActual) : '');
   const delta = (wgmSold - wgmActual) * 100;
   const deltaEl = document.getElementById('gm-delta');
   if (delta > 0) {
     deltaEl.textContent = '−' + delta.toFixed(1) + ' pts margin slippage in delivery';
-    deltaEl.style.background = 'rgba(255,176,32,0.08)';
-    deltaEl.style.borderColor = 'rgba(255,176,32,0.2)';
-    deltaEl.style.color = 'var(--amber)';
+    deltaEl.style.background = 'rgba(255,61,90,0.08)';
+    deltaEl.style.borderColor = 'rgba(255,61,90,0.2)';
+    deltaEl.style.color = 'var(--red)';
   } else {
     deltaEl.textContent = '+' + Math.abs(delta).toFixed(1) + ' pts above sold GM in delivery';
     deltaEl.style.background = 'rgba(0,214,122,0.08)';
