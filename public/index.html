@@ -599,16 +599,6 @@
   .pricing-delta-bar.green  { background: linear-gradient(90deg, var(--code-green) 0%, var(--code-green-soft) 100%); }
   .pricing-delta-bar.amber  { background: linear-gradient(270deg, var(--amber) 0%, #ffd27a 100%); }
   .pricing-delta-bar.red    { background: linear-gradient(270deg, var(--red) 0%, #ff7a8e 100%); }
-  .pricing-row.belowfloor .pricing-delta-bar {
-    background: linear-gradient(270deg, var(--red) 0%, #ff7a8e 100%);
-  }
-  .pricing-row.belowfloor .pricing-client::after {
-    content: " ⚠ heavy slippage";
-    color: var(--red);
-    font-size: 9px;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-  }
   .early-tag {
     display: inline-block;
     font-family: 'JetBrains Mono', monospace;
@@ -1701,8 +1691,7 @@ function renderPricing() {
     const labelClass = gmClass === 'green' ? 'low' : gmClass === 'red' ? 'heavy' : '';
     const slipLabel = (actualPct >= 0 ? '+' : '') + actualPct.toFixed(1) + ' pts';
     const earlyTag = r.early ? '<span class="early-tag">EARLY</span>' : '';
-    const belowfloor = actualPct < -10;
-    return `<div class="pricing-row ${belowfloor ? 'belowfloor' : ''}">
+    return `<div class="pricing-row">
       <div class="pricing-row-head">
         <span class="pricing-client">${r.client} ${earlyTag}</span>
         <span class="pricing-discount ${labelClass}">${slipLabel}</span>
