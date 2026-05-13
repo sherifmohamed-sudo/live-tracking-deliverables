@@ -172,43 +172,33 @@
     justify-self: end;
   }
   .user-badge {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center;
     margin-left: 18px;
     padding-left: 18px;
     border-left: 1px solid var(--border-strong);
   }
-  .user-avatar {
-    width: 26px; height: 26px;
-    border-radius: 50%;
-    border: 1.5px solid var(--border-strong);
-    object-fit: cover;
-  }
-  .user-avatar-fallback {
-    width: 26px; height: 26px;
-    border-radius: 50%;
-    background: var(--safety-blue);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Prompt', sans-serif;
-    font-size: 11px; font-weight: 600;
-    color: #fff;
-  }
   .sign-out-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
     background: none;
     border: 1px solid var(--border-strong);
-    border-radius: 6px;
-    padding: 4px 10px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    border-radius: 50%;
     color: var(--grey-300);
     cursor: pointer;
     transition: all 0.2s ease;
   }
+  .sign-out-btn svg {
+    width: 16px;
+    height: 16px;
+  }
   .sign-out-btn:hover {
-    color: var(--white);
-    border-color: var(--safety-blue-soft);
-    background: rgba(27,77,255,0.12);
+    color: var(--red);
+    border-color: var(--red);
+    background: rgba(255,61,90,0.1);
   }
   .app-logo {
     display: flex; align-items: center; justify-content: center;
@@ -2008,11 +1998,9 @@ document.querySelectorAll('.view-dot').forEach(dot => {
   const badge = document.getElementById('user-badge');
   if (!badge) return;
 
-  const avatarEl = user.picture
-    ? `<img class="user-avatar" src="${user.picture}" alt="" referrerpolicy="no-referrer">`
-    : `<div class="user-avatar-fallback">${(user.name || user.email)[0].toUpperCase()}</div>`;
+  const powerIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10"/><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/></svg>`;
 
-  badge.innerHTML = `${avatarEl}<button class="sign-out-btn" id="sign-out-btn">Sign Out</button>`;
+  badge.innerHTML = `<button type="button" class="sign-out-btn" id="sign-out-btn" title="Sign out (${user.email})" aria-label="Sign out">${powerIcon}</button>`;
 
   document.getElementById('sign-out-btn').addEventListener('click', () => {
     sessionStorage.removeItem('cc_user');
