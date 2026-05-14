@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark light" />
 <title>Sign In — Solutions Delivery Command Centre</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,6 +35,8 @@
     color: var(--white);
     font-family: 'Open Sans', sans-serif;
     overflow: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
@@ -215,7 +218,18 @@
     .login-card { padding: 36px 24px 32px; }
     .login-heading { font-size: 22px; }
   }
+
+  html.tv-display .login-container { max-width: 520px; }
+  html.tv-display .login-card { padding: 52px 44px 46px; }
+  html.tv-display .login-logo img { height: 72px; }
+  html.tv-display .login-heading { font-size: 30px; }
+  html.tv-display .login-subtitle { font-size: 17px; }
+  html.tv-display .google-btn { padding: 18px 28px; font-size: 17px; }
 </style>
+<script>
+  if (typeof matchMedia === 'function' && matchMedia('(min-width: 1600px) and (min-height: 900px)').matches)
+    document.documentElement.classList.add('tv-display');
+</script>
 </head>
 <body>
 

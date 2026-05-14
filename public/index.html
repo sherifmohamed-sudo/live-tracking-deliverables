@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark light" />
 <title>Solutions Delivery — Command Centre</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -115,6 +116,8 @@
     color: var(--white);
     font-family: 'Open Sans', sans-serif;
     overflow: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
@@ -141,6 +144,8 @@
     position: relative;
     z-index: 1;
     height: 100vh;
+    height: 100dvh;
+    min-height: 0;
     display: grid;
     grid-template-rows: 56px 1fr 44px;
     padding: 18px;
@@ -884,6 +889,34 @@
     color: var(--grey-500);
     letter-spacing: 1px;
   }
+
+  /* ========== Wall / TV (≥1600×900): reading distance & overscan-safe ========== */
+  html.tv-display .app {
+    grid-template-rows: 60px 1fr 52px;
+    padding: clamp(16px, 1.2vw, 28px);
+    gap: 16px;
+  }
+  html.tv-display .top-title { font-size: 19px; letter-spacing: 2.5px; }
+  html.tv-display .top-meta { font-size: 15px; }
+  html.tv-display .stat-label { font-size: 12px; }
+  html.tv-display .stat-value { font-size: 38px; }
+  html.tv-display .stat-sub { font-size: 12px; }
+  html.tv-display .panel-title { font-size: 12px; }
+  html.tv-display .panel-meta { font-size: 12px; }
+  html.tv-display .eng-client { font-size: 20px; }
+  html.tv-display .eng-prog { font-size: 14px; }
+  html.tv-display .eng-week strong { font-size: 16px; }
+  html.tv-display .pricing-row { font-size: 15px; }
+  html.tv-display .util-row { font-size: 13px; }
+  html.tv-display .now-time { font-size: 16px; }
+  html.tv-display .now-time .week { font-size: 15px; }
+  html.tv-display .marquee-item { font-size: 15px; margin-right: 72px; }
+  html.tv-display .marquee-track { animation-duration: 65s; }
+  html.tv-display .view-dot { width: 10px; height: 10px; }
+  html.tv-display .view-dot.active { width: 30px; }
+  html.tv-display .gm-card-val-lg { font-size: 64px; }
+  html.tv-display .sign-out-btn { width: 40px; height: 40px; }
+  html.tv-display .sign-out-btn svg { width: 18px; height: 18px; }
 </style>
 </head>
 <body>
@@ -1184,6 +1217,19 @@ const DUMMY_DATA = {
 // Live state — mutated by fetchAll() and read by renderers
 let DATA = JSON.parse(JSON.stringify(DUMMY_DATA));
 let CONFIG = { refreshSeconds: 60, gmTarget: 0, utilTarget: 0.75, satAmber: 4, satRed: 3, guestMode: false };
+
+// Wall / TV: 1080p-class boards — slower auto-rotation & list scroll; html.tv-display enables CSS bumps
+const TV_WALL = typeof window.matchMedia === 'function' &&
+  window.matchMedia('(min-width: 1600px) and (min-height: 900px)').matches;
+if (TV_WALL) document.documentElement.classList.add('tv-display');
+
+const SCROLL_PX = {
+  eng: TV_WALL ? 20 : 28,
+  risk: TV_WALL ? 18 : 25,
+  pricing: TV_WALL ? 18 : 25,
+  util: TV_WALL ? 16 : 22,
+  hiring: TV_WALL ? 15 : 20,
+};
 
 // ============ CSV PARSER ============
 // Handles quoted fields, embedded commas, and escaped quotes ("")
@@ -1597,7 +1643,7 @@ function renderEngagements() {
       </div>`;
     list.insertAdjacentHTML('beforeend', row);
   });
-  setupScroll('eng-list', 'eng-track', 28);
+  setupScroll('eng-list', 'eng-track', SCROLL_PX.eng);
   const sar = DATA.engagements.filter(e => e.sar).length;
   const red = DATA.engagements.filter(e => e.rag === 'Red').length;
   const amber = DATA.engagements.filter(e => e.rag === 'Amber').length;
@@ -1749,7 +1795,7 @@ function renderPricing() {
   const pricingTarget = document.getElementById('pricing');
   pricingTarget.classList.add('scroll-host');
   pricingTarget.innerHTML = html;
-  setupScroll('pricing', 'pricing-track', 25);
+  setupScroll('pricing', 'pricing-track', SCROLL_PX.pricing);
 
   // Portfolio rollup: weight by contract value across active engagements
   const active = DATA.engagements.filter(e => e.status === 'Active');
@@ -1808,7 +1854,7 @@ function renderUtil() {
   const utilTarget = document.getElementById('util-list');
   utilTarget.classList.add('scroll-host');
   utilTarget.innerHTML = html;
-  setupScroll('util-list', 'util-track', 22);
+  setupScroll('util-list', 'util-track', SCROLL_PX.util);
 }
 
 // ============ HIRING ============
@@ -1839,7 +1885,7 @@ function renderHiring() {
   }).join('');
   target.classList.add('scroll-host');
   target.innerHTML = html;
-  setupScroll('hiring-list', 'hiring-track', 20);
+  setupScroll('hiring-list', 'hiring-track', SCROLL_PX.hiring);
 
   // Summary: counts at most advanced stages
   const inOffer = sorted.filter(h => h.stage === 'Offer').length;
@@ -1881,7 +1927,7 @@ function renderRisks() {
   const target = document.getElementById('risk-list');
   target.classList.add('scroll-host');
   target.innerHTML = html;
-  setupScroll('risk-list', 'risk-track', 25);
+  setupScroll('risk-list', 'risk-track', SCROLL_PX.risk);
   const issuesCount = DATA.risks.filter(r => r.type === 'Issues').length;
   const risksCount = DATA.risks.filter(r => r.type === 'Risks').length;
   document.getElementById('risks-summary').innerHTML =
@@ -1968,8 +2014,8 @@ async function start() {
 }
 
 // ============ VIEW ROTATOR ============
-const VIEW_INTERVAL_MS = 15000;
-const PAUSE_AFTER_CLICK_MS = 30000;
+const VIEW_INTERVAL_MS = TV_WALL ? 28000 : 15000;
+const PAUSE_AFTER_CLICK_MS = TV_WALL ? 90000 : 30000;
 const viewOrder = ['delivery', 'commercial', 'team'];
 let currentViewIdx = 0;
 let viewRotatorId = null;
@@ -1985,13 +2031,13 @@ function switchToView(idx) {
     d.classList.toggle('active', d.dataset.dot === next);
   });
   if (next === 'delivery') {
-    setupScroll('eng-list', 'eng-track', 28);
-    setupScroll('risk-list', 'risk-track', 25);
+    setupScroll('eng-list', 'eng-track', SCROLL_PX.eng);
+    setupScroll('risk-list', 'risk-track', SCROLL_PX.risk);
   } else if (next === 'commercial') {
-    setupScroll('pricing', 'pricing-track', 25);
+    setupScroll('pricing', 'pricing-track', SCROLL_PX.pricing);
   } else if (next === 'team') {
-    setupScroll('util-list', 'util-track', 22);
-    setupScroll('hiring-list', 'hiring-track', 20);
+    setupScroll('util-list', 'util-track', SCROLL_PX.util);
+    setupScroll('hiring-list', 'hiring-track', SCROLL_PX.hiring);
   }
 }
 
