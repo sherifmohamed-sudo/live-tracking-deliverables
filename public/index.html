@@ -1560,6 +1560,9 @@ function setupScroll(hostId, trackClass, pxPerSecond = 25) {
     const hostHeight = host.clientHeight || host.getBoundingClientRect().height;
     const overflows = contentHeight > hostHeight + 4;
     const alreadyScrolling = host.classList.contains('scrolling');
+    // TV / embedded WebKit: transient 0×0 or tiny rects while a view is hidden or during resize —
+    // never tear down an active scroll loop from a bogus measurement.
+    const layoutUnreliable = hostHeight < 16;
 
     if (overflows && !alreadyScrolling) {
       const track = document.createElement('div');
@@ -1580,6 +1583,7 @@ function setupScroll(hostId, trackClass, pxPerSecond = 25) {
         track.style.setProperty('--scroll-duration', duration + 's');
       }
     } else if (!overflows && alreadyScrolling) {
+      if (layoutUnreliable) return;
       const track = host.querySelector(':scope > .scroll-track');
       if (track) {
         const allChildren = Array.from(track.children);
@@ -1618,7 +1622,6 @@ function setupScroll(hostId, trackClass, pxPerSecond = 25) {
     }, ms);
   });
 }
-
 
 function renderEngagements() {
   const list = document.getElementById('eng-list');
@@ -2053,14 +2056,52 @@ function rotateView() {
 }
 
 function startAutoRotate() {
-  if (viewRotatorId) clearInterval(viewRotatorId);
-  viewRotatorId = setInterval(rotateView, VIEW_INTERVAL_MS);
+  if (viewRotatorId) clearTimeout(viewRotatorId);
+  viewRotatorId = setTimeout(function tick() {
+    rotateView();
+    viewRotatorId = setTimeout(tick, VIEW_INTERVAL_MS);
+  }, VIEW_INTERVAL_MS);
 }
 
 function pauseAutoRotate() {
-  if (viewRotatorId) { clearInterval(viewRotatorId); viewRotatorId = null; }
+  if (viewRotatorId) { clearTimeout(viewRotatorId); viewRotatorId = null; }
   if (pauseResumeId) clearTimeout(pauseResumeId);
-  pauseResumeId = setTimeout(startAutoRotate, PAUSE_AFTER_CLICK_MS);
+  pauseResumeId = setTimeout(() => {
+    pauseResumeId = null;
+    startAutoRotate();
+  }, PAUSE_AFTER_CLICK_MS);
+}
+
+const SCROLL_HOST_IDS = ['eng-list', 'risk-list', 'pricing', 'util-list', 'hiring-list'];
+
+function kickScrollMeasurements() {
+  SCROLL_HOST_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    const fn = el && el._scrollMeasureLatest;
+    if (typeof fn === 'function') fn();
+  });
+}
+
+/** Some TV browsers let infinite CSS animations stall after long runs; re-trigger without rebuilding DOM. */
+function nudgeScrollAnimations() {
+  document.querySelectorAll('.scroll-host.scrolling > .scroll-track').forEach(track => {
+    const host = track.parentElement;
+    if (!host) return;
+    const r = host.getBoundingClientRect();
+    if (r.width < 8 || r.height < 8) return;
+    track.style.animation = 'none';
+    void track.offsetHeight;
+    track.style.removeProperty('animation');
+  });
+}
+
+function resumeWallboardMotion() {
+  if (!pauseResumeId) startAutoRotate();
+  switchToView(currentViewIdx);
+  requestAnimationFrame(() => {
+    kickScrollMeasurements();
+    requestAnimationFrame(nudgeScrollAnimations);
+  });
 }
 
 document.querySelectorAll('.view-dot').forEach(dot => {
@@ -2071,6 +2112,17 @@ document.querySelectorAll('.view-dot').forEach(dot => {
     pauseAutoRotate();
   });
 });
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') resumeWallboardMotion();
+});
+window.addEventListener('pageshow', () => resumeWallboardMotion());
+
+setInterval(() => {
+  if (document.visibilityState !== 'visible') return;
+  kickScrollMeasurements();
+  nudgeScrollAnimations();
+}, 120000);
 
 // ============ USER BADGE ============
 (function initUserBadge() {
