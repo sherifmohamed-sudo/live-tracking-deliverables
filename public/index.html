@@ -2069,7 +2069,7 @@ function switchToView(idx) {
     setupScroll('hiring-list', 'hiring-track', SCROLL_PX.hiring);
   }
   requestAnimationFrame(() => {
-    kickScrollMeasurements();
+    kickScrollMeasurementsForView(next);
     requestAnimationFrame(nudgeScrollAnimations);
   });
 }
@@ -2095,19 +2095,30 @@ function pauseAutoRotate() {
   }, PAUSE_AFTER_CLICK_MS);
 }
 
-const SCROLL_HOST_IDS = ['eng-list', 'risk-list', 'pricing', 'util-list', 'hiring-list'];
+/** Only hosts on this rotator view — do not re-measure hidden tabs (bad overflow/duration on many engines). */
+const SCROLL_HOST_IDS_BY_VIEW = {
+  delivery: ['eng-list', 'risk-list'],
+  commercial: ['pricing'],
+  team: ['util-list', 'hiring-list'],
+};
 
-function kickScrollMeasurements() {
-  SCROLL_HOST_IDS.forEach(id => {
+function kickScrollMeasurementsForView(viewName) {
+  const ids = SCROLL_HOST_IDS_BY_VIEW[viewName];
+  if (!ids) return;
+  ids.forEach(id => {
     const el = document.getElementById(id);
     const fn = el && el._scrollMeasureLatest;
     if (typeof fn === 'function') fn();
   });
 }
 
+function kickActiveViewScrollMeasurements() {
+  kickScrollMeasurementsForView(viewOrder[currentViewIdx]);
+}
+
 /** Some browsers let long-running infinite CSS animations stall; re-trigger without rebuilding DOM. */
 function nudgeScrollAnimations() {
-  document.querySelectorAll('.scroll-host.scrolling > .scroll-track').forEach(track => {
+  document.querySelectorAll('.view.active .scroll-host.scrolling > .scroll-track').forEach(track => {
     const host = track.parentElement;
     if (!host) return;
     const r = host.getBoundingClientRect();
@@ -2123,10 +2134,6 @@ function nudgeScrollAnimations() {
 function resumeWallboardMotion() {
   if (!pauseResumeId) startAutoRotate();
   switchToView(currentViewIdx);
-  requestAnimationFrame(() => {
-    kickScrollMeasurements();
-    requestAnimationFrame(nudgeScrollAnimations);
-  });
 }
 
 document.querySelectorAll('.view-dot').forEach(dot => {
@@ -2145,7 +2152,7 @@ window.addEventListener('pageshow', () => resumeWallboardMotion());
 
 setInterval(() => {
   if (document.visibilityState !== 'visible') return;
-  kickScrollMeasurements();
+  kickActiveViewScrollMeasurements();
   nudgeScrollAnimations();
 }, 120000);
 
@@ -2155,7 +2162,7 @@ setInterval(() => {
   let debounce;
   new ResizeObserver(() => {
     clearTimeout(debounce);
-    debounce = setTimeout(() => requestAnimationFrame(kickScrollMeasurements), 50);
+    debounce = setTimeout(() => requestAnimationFrame(kickActiveViewScrollMeasurements), 50);
   }).observe(rot);
 })();
 
