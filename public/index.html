@@ -408,7 +408,7 @@
     animation: scroll-loop var(--scroll-duration, 40s) linear infinite;
     will-change: transform;
   }
-  /* TVs often pause off-screen animations; inactive views are visibility:hidden */
+  /* Inactive rotator views are visibility:hidden — pause animations there (saves work; some engines mishandle off-screen infinite animations). */
   .view:not(.active) .scroll-host.scrolling > .scroll-track {
     -webkit-animation-play-state: paused;
     animation-play-state: paused;
@@ -1579,7 +1579,7 @@ function setupScroll(hostId, trackClass, pxPerSecond = 25) {
 
     const overflows = scrollOverflow || summedOverflow;
     const alreadyScrolling = host.classList.contains('scrolling');
-    // TV / embedded WebKit: transient 0×0 or tiny rects while a view is hidden or during resize —
+    // Transient 0×0 or tiny rects while a view is hidden or during resize (any device) —
     // never tear down an active scroll loop from a bogus measurement.
     const layoutUnreliable = hostHeight < 16;
 
@@ -2105,7 +2105,7 @@ function kickScrollMeasurements() {
   });
 }
 
-/** Some TV browsers let infinite CSS animations stall after long runs; re-trigger without rebuilding DOM. */
+/** Some browsers let long-running infinite CSS animations stall; re-trigger without rebuilding DOM. */
 function nudgeScrollAnimations() {
   document.querySelectorAll('.scroll-host.scrolling > .scroll-track').forEach(track => {
     const host = track.parentElement;
