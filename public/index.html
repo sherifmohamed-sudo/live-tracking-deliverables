@@ -392,39 +392,22 @@
   .eng-h-center { text-align: center; }
   .badge-placeholder { display: inline-block; }
 
-  /* ================ AUTO-SCROLL LOOP ================ */
+  /* ================ AUTO-SCROLL LOOP (JS-driven, see setupScroll) ================ */
+  /* The track holds the items + one cloned set; setupScroll updates its transform
+     each frame via requestAnimationFrame. No CSS animation here intentionally — */
+  /* CSS @keyframes / animation-play-state interacted badly with rotator tab
+     switches and long sessions. The JS loop is the single source of truth. */
   .scroll-track {
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    will-change: transform;
   }
   .scroll-track.eng-track > * + * { margin-top: 8px; }
   .scroll-track.risk-track > * + * { margin-top: 6px; }
   .scroll-track.pricing-track > * + * { margin-top: 8px; }
   .scroll-track.util-track > * + * { margin-top: 14px; }
   .scroll-track.hiring-track > * + * { margin-top: 8px; }
-  .scroll-host.scrolling > .scroll-track {
-    -webkit-animation: scroll-loop var(--scroll-duration, 40s) linear infinite;
-    animation: scroll-loop var(--scroll-duration, 40s) linear infinite;
-    will-change: transform;
-  }
-  /* Inactive rotator views are visibility:hidden — pause animations there (saves work; some engines mishandle off-screen infinite animations). */
-  .view:not(.active) .scroll-host.scrolling > .scroll-track {
-    -webkit-animation-play-state: paused;
-    animation-play-state: paused;
-  }
-  .view.active .scroll-host.scrolling > .scroll-track {
-    -webkit-animation-play-state: running;
-    animation-play-state: running;
-  }
-  @keyframes scroll-loop {
-    0%   { transform: translateY(0); }
-    100% { transform: translateY(-50%); }
-  }
-  /* Gap between original and duplicated content to match list gap */
-  .scroll-spacer-eng     { height: 8px; flex-shrink: 0; }
-  .scroll-spacer-risk    { height: 6px; flex-shrink: 0; }
-  .scroll-spacer-pricing { height: 8px; flex-shrink: 0; }
 
   .eng-row {
     display: grid;
@@ -1532,114 +1515,130 @@ const fmtPctNoDec = v => Math.round(v*100) + "%";
 // ============ ENGAGEMENTS ============
 
 // ============ AUTO-SCROLL HELPER ============
-// Wraps inner content of a host element in a .scroll-track, duplicating it
-// for seamless looping. Only enables animation if content overflows.
-// `pxPerSecond` controls scroll speed (TV-friendly is 25-30).
-const scrollHostRunId = new WeakMap();
+// JavaScript-driven seamless vertical scroll. Each host wraps its rows in a
+// .scroll-track containing one extra duplicate set; a requestAnimationFrame
+// loop translates the track upward and wraps modulo the half-height so the
+// loop is invisible. We deliberately avoid CSS @keyframes / animation-play-state
+// because those interact badly with rotator tab switches, custom-property
+// restarts, and long sessions across browser engines.
+//
+// Position is preserved across renderer rebuilds (data refresh) so the user
+// never sees a snap to the top. Tab switches no longer call this helper at
+// all — the loop keeps running while inactive panels are visibility:hidden.
+const SCROLL_STATES = new WeakMap();
+const SCROLL_RESIZE_OBSERVERS = new WeakMap();
 
 function setupScroll(hostId, trackClass, pxPerSecond = 25) {
   const host = document.getElementById(hostId);
   if (!host) return;
 
-  const runId = (scrollHostRunId.get(host) || 0) + 1;
-  scrollHostRunId.set(host, runId);
-  delete host._lastScrollDurationSec;
+  // Cancel any prior loop on this host and remember its position so we can
+  // restore it after the rebuild (avoids a visible jump on data refresh).
+  const priorState = SCROLL_STATES.get(host);
+  let preservedPosY = 0;
+  if (priorState) {
+    cancelAnimationFrame(priorState.rafId);
+    preservedPosY = priorState.posY;
+  }
 
+  // Collect raw items: bare children, or originals from an existing track.
+  let items;
   const existingTrack = host.querySelector(':scope > .scroll-track');
   if (existingTrack) {
-    const allChildren = Array.from(existingTrack.children);
-    const half = Math.floor(allChildren.length / 2);
-    const originals = allChildren.slice(0, half);
-    host.innerHTML = '';
-    originals.forEach(el => host.appendChild(el));
+    const all = Array.from(existingTrack.children);
+    items = all.slice(0, Math.floor(all.length / 2));
+  } else {
+    items = Array.from(host.children);
+  }
+
+  if (!items.length) {
+    SCROLL_STATES.delete(host);
     host.classList.remove('scrolling');
+    return;
   }
 
-  const getItemElements = () => {
-    const t = host.querySelector(':scope > .scroll-track');
-    if (t) {
-      const ch = Array.from(t.children);
-      const h = Math.floor(ch.length / 2);
-      return ch.slice(0, h);
-    }
-    return Array.from(host.children);
+  // Build a fresh track with one duplicate set for seamless looping.
+  host.innerHTML = '';
+  const track = document.createElement('div');
+  track.className = `scroll-track ${trackClass}`;
+  track.style.willChange = 'transform';
+  track.style.transform = 'translate3d(0,0,0)';
+  items.forEach(el => track.appendChild(el));
+  items.forEach(el => track.appendChild(el.cloneNode(true)));
+  host.appendChild(track);
+
+  const state = {
+    host, track, pxPerSecond,
+    rafId: 0, lastT: 0, posY: 0, halfHeight: 0, started: false,
   };
+  SCROLL_STATES.set(host, state);
 
-  const measureAndApply = () => {
-    if (scrollHostRunId.get(host) !== runId) return;
-
-    const items = getItemElements();
-    if (!items.length) return;
-
+  // Measure once layout settles, then start (or skip if no overflow).
+  const startWhenReady = () => {
+    if (SCROLL_STATES.get(host) !== state) return;
+    state.halfHeight = track.scrollHeight / 2;
     const hostHeight = host.clientHeight || host.getBoundingClientRect().height;
-    // Prefer scrollHeight (matches layout); sum of offsetHeights is a fallback when scrollHeight lies
-    // (e.g. some WebKit + visibility:hidden subtrees during tab switches).
-    const scrollOverflow = host.scrollHeight > hostHeight + 4;
-    let summed = 0;
-    items.forEach(el => { summed += el.offsetHeight; });
-    const styles = window.getComputedStyle(host);
-    const gap = parseFloat(styles.rowGap || styles.gap) || 0;
-    if (items.length > 1) summed += gap * (items.length - 1);
-    const summedOverflow = summed > hostHeight + 4;
-
-    const overflows = scrollOverflow || summedOverflow;
-    const alreadyScrolling = host.classList.contains('scrolling');
-
-    if (overflows && !alreadyScrolling) {
-      const track = document.createElement('div');
-      track.className = `scroll-track ${trackClass}`;
-      items.forEach(el => track.appendChild(el));
-      items.forEach(el => track.appendChild(el.cloneNode(true)));
-      host.innerHTML = '';
-      host.appendChild(track);
-      const halfHeight = track.scrollHeight / 2;
-      const durationSec = Math.max(8, halfHeight / pxPerSecond);
-      host._lastScrollDurationSec = durationSec;
-      track.style.setProperty('--scroll-duration', durationSec + 's');
-      host.classList.add('scrolling');
-    } else if (overflows && alreadyScrolling) {
-      const track = host.querySelector(':scope > .scroll-track');
-      if (track) {
-        const halfHeight = track.scrollHeight / 2;
-        const durationSec = Math.max(8, halfHeight / pxPerSecond);
-        // Changing --scroll-duration restarts the CSS animation in most engines; only
-        // update when layout meaningfully changes (avoids ResizeObserver "freezing" the loop).
-        const prev = host._lastScrollDurationSec;
-        if (prev == null || Math.abs(prev - durationSec) > 0.75) {
-          host._lastScrollDurationSec = durationSec;
-          track.style.setProperty('--scroll-duration', durationSec + 's');
-        }
-      }
+    if (state.halfHeight <= 0 || hostHeight <= 0) {
+      // Layout not ready yet (panel hidden, fonts loading…); try again next frame.
+      state.rafId = requestAnimationFrame(startWhenReady);
+      return;
     }
-    // Do not unwrap scrolling here: bogus overflow reads (scrollHeight vs flex) were stopping
-    // the loop mid-session. Teardown only happens when setupScroll runs again after a full re-render.
+    const overflows = state.halfHeight > hostHeight + 4;
+    if (!overflows) {
+      // Items fit — show them as a normal list, no scrolling.
+      const all = Array.from(track.children);
+      const originals = all.slice(0, Math.floor(all.length / 2));
+      host.innerHTML = '';
+      originals.forEach(el => host.appendChild(el));
+      host.classList.remove('scrolling');
+      SCROLL_STATES.delete(host);
+      return;
+    }
+
+    host.classList.add('scrolling');
+    if (preservedPosY < 0) {
+      // JS '%' on negatives keeps the sign, so this stays in (-halfHeight, 0].
+      state.posY = preservedPosY % state.halfHeight;
+    }
+    track.style.transform = `translate3d(0, ${state.posY}px, 0)`;
+    state.lastT = performance.now();
+    state.started = true;
+    state.rafId = requestAnimationFrame(step);
   };
 
-  host._scrollMeasureLatest = measureAndApply;
-
-  if (typeof ResizeObserver !== 'undefined' && !host._scrollResizeObserver) {
-    host._scrollResizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        const fn = host._scrollMeasureLatest;
-        if (typeof fn === 'function') fn();
-      });
-    });
-    host._scrollResizeObserver.observe(host);
+  function step(now) {
+    if (SCROLL_STATES.get(host) !== state) return;
+    // Clamp dt: when the page was hidden RAF is throttled — clamp so we do
+    // not jump huge distances on resume.
+    const dt = Math.min(80, now - state.lastT) / 1000;
+    state.lastT = now;
+    state.posY -= state.pxPerSecond * dt;
+    if (-state.posY >= state.halfHeight) {
+      state.posY += state.halfHeight; // wrap seamlessly
+    }
+    track.style.transform = `translate3d(0, ${state.posY}px, 0)`;
+    state.rafId = requestAnimationFrame(step);
   }
 
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      if (scrollHostRunId.get(host) !== runId) return;
-      measureAndApply();
-    });
-  });
+  // First attempt next frame so the new track has time to lay out.
+  state.rafId = requestAnimationFrame(startWhenReady);
 
-  [120, 400, 1200, 2500].forEach(ms => {
-    setTimeout(() => {
-      if (scrollHostRunId.get(host) !== runId) return;
-      measureAndApply();
-    }, ms);
-  });
+  // Re-measure on host resize (window resize, font load, etc.). The loop
+  // is never torn down here — only halfHeight is updated so wrapping stays
+  // correct. One observer per host (re-attached if missing).
+  if (typeof ResizeObserver !== 'undefined' && !SCROLL_RESIZE_OBSERVERS.has(host)) {
+    const ro = new ResizeObserver(() => {
+      const cur = SCROLL_STATES.get(host);
+      if (!cur || !cur.track.isConnected) return;
+      const newHalf = cur.track.scrollHeight / 2;
+      if (newHalf > 0) {
+        cur.halfHeight = newHalf;
+        if (-cur.posY >= cur.halfHeight) cur.posY = cur.posY % cur.halfHeight;
+      }
+    });
+    ro.observe(host);
+    SCROLL_RESIZE_OBSERVERS.set(host, ro);
+  }
 }
 
 function renderEngagements() {
@@ -2050,6 +2049,9 @@ let currentViewIdx = 0;
 let viewRotatorId = null;
 let pauseResumeId = null;
 
+// Tab switch only toggles classes — the per-host scroll loops keep running
+// across switches. This was a major source of stalls before: rebuilding the
+// scrolling DOM on every switch fought with the CSS animation engine.
 function switchToView(idx) {
   currentViewIdx = idx;
   const next = viewOrder[currentViewIdx];
@@ -2058,19 +2060,6 @@ function switchToView(idx) {
   });
   document.querySelectorAll('.view-dot').forEach(d => {
     d.classList.toggle('active', d.dataset.dot === next);
-  });
-  if (next === 'delivery') {
-    setupScroll('eng-list', 'eng-track', SCROLL_PX.eng);
-    setupScroll('risk-list', 'risk-track', SCROLL_PX.risk);
-  } else if (next === 'commercial') {
-    setupScroll('pricing', 'pricing-track', SCROLL_PX.pricing);
-  } else if (next === 'team') {
-    setupScroll('util-list', 'util-track', SCROLL_PX.util);
-    setupScroll('hiring-list', 'hiring-track', SCROLL_PX.hiring);
-  }
-  requestAnimationFrame(() => {
-    kickScrollMeasurementsForView(next);
-    requestAnimationFrame(nudgeScrollAnimations);
   });
 }
 
@@ -2095,45 +2084,8 @@ function pauseAutoRotate() {
   }, PAUSE_AFTER_CLICK_MS);
 }
 
-/** Only hosts on this rotator view — do not re-measure hidden tabs (bad overflow/duration on many engines). */
-const SCROLL_HOST_IDS_BY_VIEW = {
-  delivery: ['eng-list', 'risk-list'],
-  commercial: ['pricing'],
-  team: ['util-list', 'hiring-list'],
-};
-
-function kickScrollMeasurementsForView(viewName) {
-  const ids = SCROLL_HOST_IDS_BY_VIEW[viewName];
-  if (!ids) return;
-  ids.forEach(id => {
-    const el = document.getElementById(id);
-    const fn = el && el._scrollMeasureLatest;
-    if (typeof fn === 'function') fn();
-  });
-}
-
-function kickActiveViewScrollMeasurements() {
-  kickScrollMeasurementsForView(viewOrder[currentViewIdx]);
-}
-
-/** Some browsers let long-running infinite CSS animations stall; re-trigger without rebuilding DOM. */
-function nudgeScrollAnimations() {
-  document.querySelectorAll('.view.active .scroll-host.scrolling > .scroll-track').forEach(track => {
-    const host = track.parentElement;
-    if (!host) return;
-    const r = host.getBoundingClientRect();
-    if (r.width < 8 || r.height < 8) return;
-    track.style.webkitAnimation = 'none';
-    track.style.animation = 'none';
-    void track.offsetHeight;
-    track.style.removeProperty('-webkit-animation');
-    track.style.removeProperty('animation');
-  });
-}
-
 function resumeWallboardMotion() {
   if (!pauseResumeId) startAutoRotate();
-  switchToView(currentViewIdx);
 }
 
 document.querySelectorAll('.view-dot').forEach(dot => {
@@ -2149,22 +2101,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') resumeWallboardMotion();
 });
 window.addEventListener('pageshow', () => resumeWallboardMotion());
-
-setInterval(() => {
-  if (document.visibilityState !== 'visible') return;
-  kickActiveViewScrollMeasurements();
-  nudgeScrollAnimations();
-}, 120000);
-
-(function observeRotatorResize() {
-  const rot = document.querySelector('.rotator');
-  if (!rot || typeof ResizeObserver === 'undefined') return;
-  let debounce;
-  new ResizeObserver(() => {
-    clearTimeout(debounce);
-    debounce = setTimeout(() => requestAnimationFrame(kickActiveViewScrollMeasurements), 50);
-  }).observe(rot);
-})();
 
 // ============ USER BADGE ============
 (function initUserBadge() {
