@@ -413,6 +413,10 @@
     -webkit-animation-play-state: paused;
     animation-play-state: paused;
   }
+  .view.active .scroll-host.scrolling > .scroll-track {
+    -webkit-animation-play-state: running;
+    animation-play-state: running;
+  }
   @keyframes scroll-loop {
     0%   { transform: translateY(0); }
     100% { transform: translateY(-50%); }
@@ -1539,6 +1543,7 @@ function setupScroll(hostId, trackClass, pxPerSecond = 25) {
 
   const runId = (scrollHostRunId.get(host) || 0) + 1;
   scrollHostRunId.set(host, runId);
+  delete host._lastScrollDurationSec;
 
   const existingTrack = host.querySelector(':scope > .scroll-track');
   if (existingTrack) {
@@ -1579,9 +1584,6 @@ function setupScroll(hostId, trackClass, pxPerSecond = 25) {
 
     const overflows = scrollOverflow || summedOverflow;
     const alreadyScrolling = host.classList.contains('scrolling');
-    // Transient 0×0 or tiny rects while a view is hidden or during resize (any device) —
-    // never tear down an active scroll loop from a bogus measurement.
-    const layoutUnreliable = hostHeight < 16;
 
     if (overflows && !alreadyScrolling) {
       const track = document.createElement('div');
@@ -1591,28 +1593,26 @@ function setupScroll(hostId, trackClass, pxPerSecond = 25) {
       host.innerHTML = '';
       host.appendChild(track);
       const halfHeight = track.scrollHeight / 2;
-      const duration = Math.max(8, halfHeight / pxPerSecond);
-      track.style.setProperty('--scroll-duration', duration + 's');
+      const durationSec = Math.max(8, halfHeight / pxPerSecond);
+      host._lastScrollDurationSec = durationSec;
+      track.style.setProperty('--scroll-duration', durationSec + 's');
       host.classList.add('scrolling');
     } else if (overflows && alreadyScrolling) {
       const track = host.querySelector(':scope > .scroll-track');
       if (track) {
         const halfHeight = track.scrollHeight / 2;
-        const duration = Math.max(8, halfHeight / pxPerSecond);
-        track.style.setProperty('--scroll-duration', duration + 's');
+        const durationSec = Math.max(8, halfHeight / pxPerSecond);
+        // Changing --scroll-duration restarts the CSS animation in most engines; only
+        // update when layout meaningfully changes (avoids ResizeObserver "freezing" the loop).
+        const prev = host._lastScrollDurationSec;
+        if (prev == null || Math.abs(prev - durationSec) > 0.75) {
+          host._lastScrollDurationSec = durationSec;
+          track.style.setProperty('--scroll-duration', durationSec + 's');
+        }
       }
-    } else if (!overflows && alreadyScrolling) {
-      if (layoutUnreliable) return;
-      const track = host.querySelector(':scope > .scroll-track');
-      if (track) {
-        const allChildren = Array.from(track.children);
-        const half = Math.floor(allChildren.length / 2);
-        const originals = allChildren.slice(0, half);
-        host.innerHTML = '';
-        originals.forEach(el => host.appendChild(el));
-      }
-      host.classList.remove('scrolling');
     }
+    // Do not unwrap scrolling here: bogus overflow reads (scrollHeight vs flex) were stopping
+    // the loop mid-session. Teardown only happens when setupScroll runs again after a full re-render.
   };
 
   host._scrollMeasureLatest = measureAndApply;
