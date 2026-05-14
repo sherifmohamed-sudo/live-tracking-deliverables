@@ -403,9 +403,15 @@
   .scroll-track.pricing-track > * + * { margin-top: 8px; }
   .scroll-track.util-track > * + * { margin-top: 14px; }
   .scroll-track.hiring-track > * + * { margin-top: 8px; }
-  .scroll-host.scrolling .scroll-track {
+  .scroll-host.scrolling > .scroll-track {
+    -webkit-animation: scroll-loop var(--scroll-duration, 40s) linear infinite;
     animation: scroll-loop var(--scroll-duration, 40s) linear infinite;
     will-change: transform;
+  }
+  /* TVs often pause off-screen animations; inactive views are visibility:hidden */
+  .view:not(.active) .scroll-host.scrolling > .scroll-track {
+    -webkit-animation-play-state: paused;
+    animation-play-state: paused;
   }
   @keyframes scroll-loop {
     0%   { transform: translateY(0); }
@@ -769,7 +775,16 @@
   }
 
   .risks-panel { min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-  .risk-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+  /* Same flex contract as eng-list: must shrink inside panel or overflow is never detected */
+  .risk-list {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 4px;
+  }
   .risk-list::-webkit-scrollbar { width: 5px; }
   .risk-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
   .risk-row {
@@ -1551,14 +1566,18 @@ function setupScroll(hostId, trackClass, pxPerSecond = 25) {
     const items = getItemElements();
     if (!items.length) return;
 
-    let contentHeight = 0;
-    items.forEach(el => { contentHeight += el.offsetHeight; });
+    const hostHeight = host.clientHeight || host.getBoundingClientRect().height;
+    // Prefer scrollHeight (matches layout); sum of offsetHeights is a fallback when scrollHeight lies
+    // (e.g. some WebKit + visibility:hidden subtrees during tab switches).
+    const scrollOverflow = host.scrollHeight > hostHeight + 4;
+    let summed = 0;
+    items.forEach(el => { summed += el.offsetHeight; });
     const styles = window.getComputedStyle(host);
     const gap = parseFloat(styles.rowGap || styles.gap) || 0;
-    if (items.length > 1) contentHeight += gap * (items.length - 1);
+    if (items.length > 1) summed += gap * (items.length - 1);
+    const summedOverflow = summed > hostHeight + 4;
 
-    const hostHeight = host.clientHeight || host.getBoundingClientRect().height;
-    const overflows = contentHeight > hostHeight + 4;
+    const overflows = scrollOverflow || summedOverflow;
     const alreadyScrolling = host.classList.contains('scrolling');
     // TV / embedded WebKit: transient 0×0 or tiny rects while a view is hidden or during resize —
     // never tear down an active scroll loop from a bogus measurement.
@@ -2049,6 +2068,10 @@ function switchToView(idx) {
     setupScroll('util-list', 'util-track', SCROLL_PX.util);
     setupScroll('hiring-list', 'hiring-track', SCROLL_PX.hiring);
   }
+  requestAnimationFrame(() => {
+    kickScrollMeasurements();
+    requestAnimationFrame(nudgeScrollAnimations);
+  });
 }
 
 function rotateView() {
@@ -2089,8 +2112,10 @@ function nudgeScrollAnimations() {
     if (!host) return;
     const r = host.getBoundingClientRect();
     if (r.width < 8 || r.height < 8) return;
+    track.style.webkitAnimation = 'none';
     track.style.animation = 'none';
     void track.offsetHeight;
+    track.style.removeProperty('-webkit-animation');
     track.style.removeProperty('animation');
   });
 }
@@ -2123,6 +2148,16 @@ setInterval(() => {
   kickScrollMeasurements();
   nudgeScrollAnimations();
 }, 120000);
+
+(function observeRotatorResize() {
+  const rot = document.querySelector('.rotator');
+  if (!rot || typeof ResizeObserver === 'undefined') return;
+  let debounce;
+  new ResizeObserver(() => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => requestAnimationFrame(kickScrollMeasurements), 50);
+  }).observe(rot);
+})();
 
 // ============ USER BADGE ============
 (function initUserBadge() {
