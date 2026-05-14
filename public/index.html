@@ -108,10 +108,15 @@
   body.theme-light .pricing-delta-bar.amber  { background: linear-gradient(270deg, var(--amber) 0%, #d97706 100%); }
   body.theme-light .pricing-delta-bar.red    { background: linear-gradient(270deg, var(--red) 0%, #dc2626 100%); }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html {
+    min-height: 100%;
+    min-height: -webkit-fill-available;
+  }
 
   html, body {
     height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
     background: var(--space-deep);
     color: var(--white);
     font-family: 'Open Sans', sans-serif;
@@ -140,16 +145,17 @@
     z-index: 0;
   }
 
+  /* Fixed fill: TV / embedded browsers often under-report vh/dvh — avoids gap under footer */
   .app {
-    position: relative;
+    position: fixed;
+    inset: 0;
     z-index: 1;
-    height: 100vh;
-    height: 100dvh;
-    min-height: 0;
+    box-sizing: border-box;
     display: grid;
-    grid-template-rows: 56px 1fr 44px;
+    grid-template-rows: 56px 1fr auto;
     padding: 18px;
     gap: 14px;
+    min-height: 0;
   }
 
   /* ================ TOP BAR ================ */
@@ -843,6 +849,7 @@
     align-items: center;
     gap: 24px;
     padding: 0 22px;
+    min-height: 44px;
     background: linear-gradient(90deg, var(--space-black) 0%, var(--space-mid) 100%);
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -892,7 +899,7 @@
 
   /* ========== Wall / TV (≥1600×900): reading distance & overscan-safe ========== */
   html.tv-display .app {
-    grid-template-rows: 60px 1fr 52px;
+    grid-template-rows: 60px 1fr auto;
     padding: clamp(16px, 1.2vw, 28px);
     gap: 16px;
   }
