@@ -394,6 +394,7 @@
   .scroll-track.hiring-track > * + * { margin-top: 8px; }
   .scroll-host.scrolling .scroll-track {
     animation: scroll-loop var(--scroll-duration, 40s) linear infinite;
+    will-change: transform;
   }
   @keyframes scroll-loop {
     0%   { transform: translateY(0); }
@@ -1462,42 +1463,52 @@ const fmtPctNoDec = v => Math.round(v*100) + "%";
 // Wraps inner content of a host element in a .scroll-track, duplicating it
 // for seamless looping. Only enables animation if content overflows.
 // `pxPerSecond` controls scroll speed (TV-friendly is 25-30).
+const scrollHostRunId = new WeakMap();
+
 function setupScroll(hostId, trackClass, pxPerSecond = 25) {
   const host = document.getElementById(hostId);
   if (!host) return;
-  // If a track already wraps content, unwrap it back to flat children first
+
+  const runId = (scrollHostRunId.get(host) || 0) + 1;
+  scrollHostRunId.set(host, runId);
+
   const existingTrack = host.querySelector(':scope > .scroll-track');
   if (existingTrack) {
-    // Half the children are duplicates from the previous setup — discard them
     const allChildren = Array.from(existingTrack.children);
-    const half = allChildren.length / 2;
+    const half = Math.floor(allChildren.length / 2);
     const originals = allChildren.slice(0, half);
     host.innerHTML = '';
     originals.forEach(el => host.appendChild(el));
     host.classList.remove('scrolling');
   }
-  // Pull existing children — these are the originals
-  const items = Array.from(host.children);
-  if (!items.length) return;
 
-  // Measure content vs host height. Only build the duplicated scroll track if content
-  // actually overflows — otherwise leave the flat list alone (no visible duplication).
-  // Retries handle the case where layout/fonts haven't settled (e.g. hidden views).
+  const getItemElements = () => {
+    const t = host.querySelector(':scope > .scroll-track');
+    if (t) {
+      const ch = Array.from(t.children);
+      const h = Math.floor(ch.length / 2);
+      return ch.slice(0, h);
+    }
+    return Array.from(host.children);
+  };
+
   const measureAndApply = () => {
-    // Compute the content height by summing the original items
+    if (scrollHostRunId.get(host) !== runId) return;
+
+    const items = getItemElements();
+    if (!items.length) return;
+
     let contentHeight = 0;
     items.forEach(el => { contentHeight += el.offsetHeight; });
-    // Add gaps between items if any (read from computed style)
     const styles = window.getComputedStyle(host);
     const gap = parseFloat(styles.rowGap || styles.gap) || 0;
     if (items.length > 1) contentHeight += gap * (items.length - 1);
 
-    const hostHeight = host.clientHeight;
+    const hostHeight = host.clientHeight || host.getBoundingClientRect().height;
     const overflows = contentHeight > hostHeight + 4;
     const alreadyScrolling = host.classList.contains('scrolling');
 
     if (overflows && !alreadyScrolling) {
-      // Build the duplicated track now
       const track = document.createElement('div');
       track.className = `scroll-track ${trackClass}`;
       items.forEach(el => track.appendChild(el));
@@ -1505,15 +1516,21 @@ function setupScroll(hostId, trackClass, pxPerSecond = 25) {
       host.innerHTML = '';
       host.appendChild(track);
       const halfHeight = track.scrollHeight / 2;
-      const duration = halfHeight / pxPerSecond;
+      const duration = Math.max(8, halfHeight / pxPerSecond);
       track.style.setProperty('--scroll-duration', duration + 's');
       host.classList.add('scrolling');
+    } else if (overflows && alreadyScrolling) {
+      const track = host.querySelector(':scope > .scroll-track');
+      if (track) {
+        const halfHeight = track.scrollHeight / 2;
+        const duration = Math.max(8, halfHeight / pxPerSecond);
+        track.style.setProperty('--scroll-duration', duration + 's');
+      }
     } else if (!overflows && alreadyScrolling) {
-      // Was scrolling, no longer needs to — unwrap back to flat list
       const track = host.querySelector(':scope > .scroll-track');
       if (track) {
         const allChildren = Array.from(track.children);
-        const half = allChildren.length / 2;
+        const half = Math.floor(allChildren.length / 2);
         const originals = allChildren.slice(0, half);
         host.innerHTML = '';
         originals.forEach(el => host.appendChild(el));
@@ -1521,9 +1538,32 @@ function setupScroll(hostId, trackClass, pxPerSecond = 25) {
       host.classList.remove('scrolling');
     }
   };
-  requestAnimationFrame(measureAndApply);
-  setTimeout(measureAndApply, 400);
-  setTimeout(measureAndApply, 1200);
+
+  host._scrollMeasureLatest = measureAndApply;
+
+  if (typeof ResizeObserver !== 'undefined' && !host._scrollResizeObserver) {
+    host._scrollResizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        const fn = host._scrollMeasureLatest;
+        if (typeof fn === 'function') fn();
+      });
+    });
+    host._scrollResizeObserver.observe(host);
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (scrollHostRunId.get(host) !== runId) return;
+      measureAndApply();
+    });
+  });
+
+  [120, 400, 1200, 2500].forEach(ms => {
+    setTimeout(() => {
+      if (scrollHostRunId.get(host) !== runId) return;
+      measureAndApply();
+    }, ms);
+  });
 }
 
 
