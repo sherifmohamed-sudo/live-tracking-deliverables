@@ -1940,24 +1940,19 @@ function renderHiring() {
   target.innerHTML = html;
   setupScroll('hiring-list', 'hiring-track', SCROLL_PX.hiring);
 
-  // Summary: "open" must mean Stage=Open, not "all non-hired" (that word is "active").
-  const activeRoles = sorted.filter(h => hiringStageNorm(h.stage) !== 'hired').length;
   const openStage = sorted.filter(h => hiringStageNorm(h.stage) === 'open').length;
   const screening = sorted.filter(h => hiringStageNorm(h.stage) === 'screening').length;
   const interviewing = sorted.filter(h => hiringStageNorm(h.stage) === 'interviewing').length;
-  const inOffer = sorted.filter(h => hiringStageNorm(h.stage) === 'offer').length;
+  const openBucket = openStage + screening; // Open through Screening count as "open"
+  const offered = sorted.filter(h => hiringStageNorm(h.stage) === 'offer').length;
+  const hiredAwaiting = sorted.filter(h => hiringStageNorm(h.stage) === 'hired').length;
   const summary = document.getElementById('hiring-summary');
   if (summary) {
-    const parts = [
-      `<strong>${activeRoles}</strong> active`,
-      `<strong>${openStage}</strong> open`,
-    ];
-    if (screening > 0) {
-      parts.push(`<strong>${screening}</strong> screening`);
-    }
-    parts.push(`<strong class="amber">${interviewing}</strong> interviewing`);
-    parts.push(`<strong class="green">${inOffer}</strong> at offer`);
-    summary.innerHTML = parts.join(' · ');
+    summary.innerHTML =
+      `Open = <strong>${openBucket}</strong> + <strong>${interviewing}</strong> ` +
+      `<span style="color:var(--grey-500);font-weight:400">(Open + Screening + Interviewing)</span> · ` +
+      `Offered = <strong class="green">${offered}</strong> · ` +
+      `Hired / Awaiting Start = <strong>${hiredAwaiting}</strong>`;
   }
 }
 
