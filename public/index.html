@@ -1949,8 +1949,7 @@ function renderHiring() {
   const summary = document.getElementById('hiring-summary');
   if (summary) {
     summary.innerHTML =
-      `Open = <strong>${openBucket}</strong> + <strong>${interviewing}</strong> ` +
-      `<span style="color:var(--grey-500);font-weight:400">(Open + Screening + Interviewing)</span> · ` +
+      `Open = <strong>${openBucket}</strong> + <strong>${interviewing}</strong> · ` +
       `Offered = <strong class="green">${offered}</strong> · ` +
       `Hired / Awaiting Start = <strong>${hiredAwaiting}</strong>`;
   }
