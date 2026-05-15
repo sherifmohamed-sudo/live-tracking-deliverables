@@ -375,8 +375,8 @@
 
   .eng-header {
     display: grid;
-    grid-template-columns: 14px 1fr 40px 40px 75px 40px;
-    gap: 18px;
+    grid-template-columns: 14px minmax(0, 1fr) 72px 72px 40px 40px 75px 40px;
+    gap: 14px;
     padding: 6px 18px 10px;
     margin-bottom: 4px;
     border-bottom: 1px solid var(--border);
@@ -390,6 +390,21 @@
     color: var(--grey-500);
   }
   .eng-h-center { text-align: center; }
+  .eng-h-right {
+    text-align: right;
+    padding-right: 2px;
+  }
+  .eng-money {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--grey-100);
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
   .badge-placeholder { display: inline-block; }
 
   /* ================ AUTO-SCROLL LOOP (JS-driven, see setupScroll) ================ */
@@ -411,9 +426,9 @@
 
   .eng-row {
     display: grid;
-    grid-template-columns: 14px 1fr 40px 40px 75px 40px;
+    grid-template-columns: 14px minmax(0, 1fr) 72px 72px 40px 40px 75px 40px;
     align-items: center;
-    gap: 18px;
+    gap: 14px;
     padding: 14px 18px;
     background: rgba(10,14,26,0.45);
     border: 1px solid var(--border);
@@ -915,6 +930,7 @@
   html.tv-display .eng-client { font-size: 20px; }
   html.tv-display .eng-prog { font-size: 14px; }
   html.tv-display .eng-week strong { font-size: 16px; }
+  html.tv-display .eng-money { font-size: 11px; }
   html.tv-display .pricing-row { font-size: 15px; }
   html.tv-display .util-row { font-size: 13px; }
   html.tv-display .now-time { font-size: 16px; }
@@ -994,6 +1010,8 @@
           <div class="eng-header">
             <div></div>
             <div class="eng-h-label">Project Name / Client</div>
+            <div class="eng-h-label eng-h-right">Contract</div>
+            <div class="eng-h-label eng-h-right">List</div>
             <div class="eng-h-label eng-h-center">SAR</div>
             <div class="eng-h-label eng-h-center">CRs</div>
             <div class="eng-h-label eng-h-center">Progress</div>
@@ -1327,7 +1345,7 @@ function mapEngagements(rows) {
       sat: toNum(r['Satisfaction score (1-7)']),
       contract: toNum(r['Contract value']) || 0,
       list: toNum(r['List price']) || 0,
-      delivered: toNum(r['Delivered to date']) || 0,
+      delivered: toNum(r['Invoiced to date'] ?? r['Delivered to date']) || 0,
       gmTarget: toPct(r['GM target %']) || 0,
       gmActual: toPct(r['GM actual %']) || 0,
       pm: r['Lead PM'] || '',
@@ -1655,6 +1673,7 @@ function renderEngagements() {
     const crBadge = `<span class="cell-num ${e.crCount > 0 ? 'has' : ''}">${e.crCount}</span>`;
     const masked = e.confidential && CONFIG.guestMode;
     const clientName = masked ? '████████████' : e.client;
+    const moneyCell = v => (masked ? '████' : (v > 0 ? fmtMoney(v) : '—'));
     const row = `
       <div class="eng-row ${masked ? 'confidential' : ''}">
         <div class="rag-pill ${ragClass}"></div>
@@ -1664,6 +1683,8 @@ function renderEngagements() {
           </div>
           <div class="eng-prog">${clientName} · ${e.pm}</div>
         </div>
+        <div class="eng-money" title="${masked ? '' : 'Contract value'}">${moneyCell(e.contract)}</div>
+        <div class="eng-money" title="${masked ? '' : 'List price'}">${moneyCell(e.list)}</div>
         ${sarBadge}
         ${crBadge}
         <div class="eng-week">Wk <strong>${e.currentWeek}</strong>/${e.weeks}</div>
