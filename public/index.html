@@ -1943,13 +1943,13 @@ function renderHiring() {
   const openStage = sorted.filter(h => hiringStageNorm(h.stage) === 'open').length;
   const screening = sorted.filter(h => hiringStageNorm(h.stage) === 'screening').length;
   const interviewing = sorted.filter(h => hiringStageNorm(h.stage) === 'interviewing').length;
-  const openBucket = openStage + screening; // Open through Screening count as "open"
+  const openTotal = openStage + screening + interviewing;
   const offered = sorted.filter(h => hiringStageNorm(h.stage) === 'offer').length;
   const hiredAwaiting = sorted.filter(h => hiringStageNorm(h.stage) === 'hired').length;
   const summary = document.getElementById('hiring-summary');
   if (summary) {
     summary.innerHTML =
-      `Open = <strong>${openBucket}</strong> + <strong>${interviewing}</strong> · ` +
+      `Open = <strong>${openTotal}</strong> · ` +
       `Offered = <strong class="green">${offered}</strong> · ` +
       `Hired / Awaiting Start = <strong>${hiredAwaiting}</strong>`;
   }
