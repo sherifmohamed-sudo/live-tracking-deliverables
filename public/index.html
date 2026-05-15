@@ -1885,6 +1885,10 @@ function renderUtil() {
   setupScroll('util-list', 'util-track', SCROLL_PX.util);
 }
 
+function hiringStageNorm(s) {
+  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 // ============ HIRING ============
 function renderHiring() {
   const target = document.getElementById('hiring-list');
@@ -1915,13 +1919,24 @@ function renderHiring() {
   target.innerHTML = html;
   setupScroll('hiring-list', 'hiring-track', SCROLL_PX.hiring);
 
-  // Summary: counts at most advanced stages
-  const inOffer = sorted.filter(h => h.stage === 'Offer').length;
-  const interviewing = sorted.filter(h => h.stage === 'Interviewing').length;
-  const totalOpen = sorted.filter(h => h.stage !== 'Hired').length;
+  // Summary: "open" must mean Stage=Open, not "all non-hired" (that word is "active").
+  const activeRoles = sorted.filter(h => hiringStageNorm(h.stage) !== 'hired').length;
+  const openStage = sorted.filter(h => hiringStageNorm(h.stage) === 'open').length;
+  const screening = sorted.filter(h => hiringStageNorm(h.stage) === 'screening').length;
+  const interviewing = sorted.filter(h => hiringStageNorm(h.stage) === 'interviewing').length;
+  const inOffer = sorted.filter(h => hiringStageNorm(h.stage) === 'offer').length;
   const summary = document.getElementById('hiring-summary');
   if (summary) {
-    summary.innerHTML = `<strong>${totalOpen}</strong> open · <strong class="amber">${interviewing}</strong> interviewing · <strong class="green">${inOffer}</strong> at offer`;
+    const parts = [
+      `<strong>${activeRoles}</strong> active`,
+      `<strong>${openStage}</strong> open`,
+    ];
+    if (screening > 0) {
+      parts.push(`<strong>${screening}</strong> screening`);
+    }
+    parts.push(`<strong class="amber">${interviewing}</strong> interviewing`);
+    parts.push(`<strong class="green">${inOffer}</strong> at offer`);
+    summary.innerHTML = parts.join(' · ');
   }
 }
 
